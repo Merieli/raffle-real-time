@@ -28,7 +28,6 @@ const updateParticipantsCount = (count) => {
  */
 const handleSocketMessage = (event) => {
     const data = JSON.parse(event.data);
-    console.debug("🟣 ~ file: admin.js:31 ~ handleSocketMessage ~ data:", data)
 
     if(data.action === ACTIONS.CLIENT_COUNT_UPDATE) {
         updateParticipantsCount(data.data);
