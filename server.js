@@ -17,14 +17,68 @@ server.listen(APP_PORT, () =>
   console.log(`Servidor ouvindo a porta ${APP_PORT}!`)
 );
 
+/** Lista com todos participantes conectados */
 let clients = [];
 
+/** constante de ações do websocket */
 const ACTIONS = {
     ADMIN: "admin",
-    DRAW: "draw",	
+    RAFFLE: "raffle",
     CLIENT_COUNT_UPDATE: "clientCountUpdate",
 }
 
+/**
+ * Efetua o sorteio e envia a mensagem de ganhador para o client vencedor e a mensagem de 
+ * perdedor para os demais
+ * @param {string} confirmationCode 
+ */
+const handleRaffle = (confirmationCode) => {
+    let participants = Array.from(wss.clients).filter((client) => {
+        const notIsAdmin = !client.isAdmin;
+        return notIsAdmin;
+    })
+    const randomIndex = Math.floor(Math.random() * participants.length);
+
+    const winner = participants[randomIndex];
+
+    participants.forEach((participant) => {
+        let result = JSON.stringify({ status: 'youlose' });
+        const isWinner = participant === winner;
+
+        if (isWinner) result = JSON.stringify({ status: 'youwin', code: confirmationCode });
+
+        participant.send(result);
+    })
+}
+
+/**
+ * Lida com a mensagem recebida do web socket de todas as páginas, tratando de acordo com a ação 
+ * recebida na mensagem. 
+ * Para o admin é adicionado o identificador pelo isAdmin
+ * Para o sorteio é chamada a função de sorteio
+ * @param ws - client do websocket
+ * @param {Object} message - mensagem recebida do websocket
+ */
+const handleIncomingMessage = (ws, message) => {
+    const currentMessage = JSON.parse(message);
+    const action = currentMessage.action;
+
+    switch (action) {
+        case ACTIONS.ADMIN:
+            ws.isAdmin = true;
+            break;
+        case ACTIONS.RAFFLE:
+            handleRaffle(currentMessage.code)
+            break;
+        default:
+            console.warn("Ação não reconhecida!")
+            break;
+    }
+}
+
+/**
+ * Atualiza o contador de clients conectados para a exibição no admin
+ */
 const updateAdminClientCount = () => {
     const clientCount = Array.from(wss.clients).filter(client => {
         return !client.isAdmin
@@ -43,47 +97,15 @@ const updateAdminClientCount = () => {
 
 }
 
-const handleDraw = (confirmationCode) => {
-    let participants = Array.from(wss.clients).filter((client) => {
-        const notIsAdmin = !client.isAdmin;
-        return notIsAdmin;
-    })
-
-    const randomIndex = Math.floor(Math.random() * participants.length);
-    const winner = participants[randomIndex];
-
-    participants.forEach((participant) => {
-        let result = JSON.stringify({ status: STATUS.LOSE });
-        const isWinner = participant === winner;
-
-        if (isWinner) result = JSON.stringify({ status: STATUS.WIN, code: confirmationCode });
-
-        participant.send(result);
-    })
-}
-
-const handleIncomingMessage = (ws, message) => {
-    const currentMessage = JSON.parse(message);
-    const action = currentMessage.action;
-
-    switch (action) {
-        case ACTIONS.ADMIN:
-            ws.isAdmin = true;
-            break;
-        case ACTIONS.DRAW:
-            handleDraw(currentMessage.code)
-            break;
-        default:
-            console.warn("Ação não reconhecida!")
-            break;
-    }
-}
-
+/** 
+ * Inicia a conexão com o servidor de web socket
+ */
 wss.on('connection', (ws) => {
     clients.push(ws);
     console.log("Novo client conectado!");
     updateAdminClientCount();
 
+    // Lida com as mensagens recebidas do client conectado passando o client do websocket por padrão como primeiro parâmetro, assim ao executar o evento o segundo parâmetro será a mensagem enviada pelo client
     ws.on('message', handleIncomingMessage.bind(null, ws));
 
     ws.on('close', () => {
@@ -92,5 +114,3 @@ wss.on('connection', (ws) => {
         updateAdminClientCount();
     })
 });
-
-// parei em 27:59

@@ -5,8 +5,8 @@ const STATUS = {
     LOSE: "youlose",
 }
 
-const ACTIONS = {
+let ACTIONS = {
     ADMIN: "admin",
-    DRAW: "draw",
+    RAFFLE: "raffle",
     CLIENT_COUNT_UPDATE: "clientCountUpdate",
 }
